@@ -1,3 +1,6 @@
+//! The entities tab module. Manages the inspector that selects entities, displays information
+//! about them, and allows editing their components.
+
 pub mod editors;
 
 use bevy::prelude::*;
@@ -12,6 +15,8 @@ use self::editors::{
     string_editor, value_editor, EditorStates, VariantProxy,
 };
 
+/// The plugin that adds the entity tab to the inspector. Adds necessary resources, and
+/// a few necessary systems, as well as adding the tab to the end of the [`Spyglass`] tab list.
 pub struct EntitiesTabPlugin;
 
 impl Plugin for EntitiesTabPlugin {
@@ -204,11 +209,23 @@ struct SelectedEntity {
 #[derive(Default, Resource)]
 struct EntitySearch(String);
 
+/// An editor of a given type. Arguments:
+/// - `ui: &mut Ui`
+/// - `repr: &mut dyn Reflect`
+/// - `world: &mut World`
+/// - `editors: &ReprEditors`
+/// - `states: &mut EditorStates`
+///
+/// These can be created and added to [`ReprEditors`] to create custom editors for various types.
+/// For example, primitive types are edited via specific [`ReprEditor`]s.
 pub type ReprEditor =
     dyn Fn(&mut Ui, &mut dyn Reflect, &mut World, &ReprEditors, &mut EditorStates) + Send + Sync;
 
+/// The resource that contains [`ReprEditor`]s, mapping from the
+/// repr [`type_name`](std::any::type_name)s to their editor.
 #[derive(Resource)]
 pub struct ReprEditors {
+    /// A map from [`type_name`](std::any::type_name)s to [`ReprEditor`].
     pub editors: HashMap<String, Box<ReprEditor>>,
 }
 
@@ -258,6 +275,8 @@ impl ReprEditors {
         bevy::reflect::ReflectMut::Value(repr) => value_editor(ui, repr),
     };
 
+    /// Get an editor for a type based on its name. Returns either a custom [`ReprEditor`] or a
+    /// default reflect-powered one if none exists.
     pub fn get(&self, name: &str) -> &ReprEditor {
         self.editors
             .get(name)
@@ -288,12 +307,14 @@ fn apply_entity_state(world: &mut World) {
     world.insert_resource(SelectedEntity { id, name, state });
 }
 
+/// The resource that stores a list of current [`Popup`]s.
 #[derive(Default, Resource)]
 pub struct Popups {
     popups: Vec<Popup>,
 }
 
 impl Popups {
+    /// Display the contained popups to the given [`egui::Context`].
     pub fn display_popups(&mut self, ui: &mut egui::Context) {
         let mut i = 0;
         loop {
@@ -310,22 +331,26 @@ impl Popups {
         }
     }
 
+    /// Push a new popup onto the list.
     pub fn add(&mut self, popup: Popup) {
         self.popups.push(popup);
     }
 }
 
+/// A message popup, to be used with [`Popups`]. Commonly used for error messages.
 pub struct Popup {
     message: String,
 }
 
 impl Popup {
+    /// Create a new message popup.
     pub fn new(msg: impl Into<String>) -> Self {
         Popup {
             message: msg.into(),
         }
     }
 
+    /// Display a popup to the given [`egui::Context`] with a given [`egui::Id`] source.
     pub fn display(&self, id: usize, ctx: &mut egui::Context) -> bool {
         let win = egui::Window::new("")
             .id(egui::Id::new("popup_window").with(id))

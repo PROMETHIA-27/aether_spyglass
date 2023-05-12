@@ -1,23 +1,38 @@
+//! A module that defines the editors used in the entity inspector.
+
 use std::fmt::Display;
 use std::str::FromStr;
 
 use bevy::prelude::*;
 use bevy::reflect::{
-    Array, DynamicArray, DynamicEnum, DynamicInfo, DynamicList, DynamicMap, DynamicStruct,
-    DynamicTuple, DynamicTupleStruct, DynamicVariant, Enum, EnumInfo, List, Map, Tuple, TypeInfo,
-    VariantInfo, VariantType,
+    Array, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, DynamicVariant, Enum, EnumInfo, List, Map, Tuple, TypeInfo, VariantInfo,
+    VariantType,
 };
 use bevy::utils::HashMap;
 use bevy_egui::egui::{self, InnerResponse, ScrollArea, Ui};
 
-use super::{Popup, Popups, ReprEditors};
+use super::ReprEditors;
 
+/// The state of an editor. These are assembled into a tree of states in [`EditorStates`]. This
+/// allows having persistent state for each editor. This state is stored based on [`egui::Id`],
+/// so make sure to keep those consistent. They are also generally cleared all at once sometimes,
+/// so make sure to check for freshness and clear any child editor states when necessary.
+/// The builtin editors are a good example of how to do this.
 pub enum EditorState {
-    TextEdit { temp_value: String },
+    /// Persistent state for a text editor. This prevents attempting to apply incomplete text
+    /// immediately.
+    TextEdit {
+        /// The temporary string being typed/stored persistently.
+        temp_value: String,
+    },
+    /// Persistent state for everything else. There is generally nothing special that composite
+    /// editors need right now, but they may need something in the future.
     Composite,
 }
 
 impl EditorState {
+    /// Unwrap [`EditorState::TextEdit`] from an [`EditorState`].
     pub fn text_edit(&mut self) -> &mut String {
         match self {
             Self::TextEdit { temp_value } => temp_value,
@@ -25,6 +40,7 @@ impl EditorState {
         }
     }
 
+    /// Unwrap [`EditorState::Composite`] from an [`EditorState`].
     pub fn composite(&mut self) {
         match self {
             Self::Composite => (),
@@ -33,6 +49,8 @@ impl EditorState {
     }
 }
 
+/// A constructor. These represent windows that are used to construct a value of a given type,
+/// for example when constructing a new enum value when a variant is chosen.
 #[derive(Default)]
 pub struct Ctor {
     value: Option<Box<dyn Reflect>>,
@@ -40,11 +58,14 @@ pub struct Ctor {
 }
 
 impl Ctor {
+    /// Start a constructor, setting its value and marking it as fresh.
     pub fn start(&mut self, value: Box<dyn Reflect>) {
         self.value = Some(value);
         self.fresh = true;
     }
 
+    /// Poll a constructor, displaying it to the UI if necessary and updating its state. If fresh,
+    /// it will clear its editor states. Returns the constructed value if `apply` is pressed.
     pub fn poll(
         &mut self,
         ui: &mut Ui,
@@ -87,12 +108,15 @@ impl Ctor {
     }
 }
 
+/// The list of currently running constructors.
+/// Every editor has one of these.
 #[derive(Default)]
 pub struct Ctors {
     ctors: Vec<Ctor>,
 }
 
 impl Ctors {
+    /// Get the first constructor, as a shorthand.
     pub fn first(&mut self) -> &mut Ctor {
         if !self.ctors.is_empty() {
             &mut self.ctors[0]
@@ -102,6 +126,7 @@ impl Ctors {
         }
     }
 
+    /// Get the nth constructor. It is up to the user to keep track of which ctor is which.
     pub fn nth(&mut self, n: usize) -> &mut Ctor {
         if self.ctors.len() > n {
             &mut self.ctors[n]
@@ -112,6 +137,7 @@ impl Ctors {
     }
 }
 
+/// Stores the state of editors. This comes in the form of [`EditorState`] and [`Ctors`].
 #[derive(Default, Resource)]
 pub struct EditorStates {
     state: HashMap<egui::Id, EditorState>,
@@ -119,10 +145,12 @@ pub struct EditorStates {
 }
 
 impl EditorStates {
+    /// Get the [`EditorState`] for a given id.
     pub fn get(&mut self, id: egui::Id) -> Option<&mut EditorState> {
         self.state.get_mut(&id)
     }
 
+    /// Get the [`EditorState`] for a given id or use the default function given to create it.
     pub fn get_or(
         &mut self,
         id: egui::Id,
@@ -131,6 +159,8 @@ impl EditorStates {
         self.state.entry(id).or_insert_with(default)
     }
 
+    /// Get the [`EditorState`] for a given id or use the default function given to create it.
+    /// Unlike [`get_or`], returns a bool representing if the state had to be init (freshness).
     pub fn init(
         &mut self,
         id: egui::Id,
@@ -145,14 +175,18 @@ impl EditorStates {
         }
     }
 
+    /// Insert a new state for a given id.
     pub fn insert(&mut self, id: egui::Id, state: EditorState) {
         self.state.insert(id, state);
     }
 
+    /// Remove the state of an id.
     pub fn remove(&mut self, id: egui::Id) -> Option<EditorState> {
         self.state.remove(&id)
     }
 
+    /// Get access to the ctors of an id in a closure. Do not nest calls to this for the same id.
+    /// Necessary to be able to access constructors and state at the same time.
     pub fn ctors<R>(
         &mut self,
         id: egui::Id,
@@ -165,13 +199,19 @@ impl EditorStates {
     }
 }
 
+/// A generic trait that represents the field access ability of several traits from `bevy_reflect`.
+/// Should not need to be implemented or used by user types.
 pub trait FieldAccess {
+    /// Get the number of fields.
     fn field_len(&self) -> usize;
 
+    /// Get the nth field.
     fn field(&mut self, index: usize) -> &mut dyn Reflect;
 
+    /// Get the name of the nth field.
     fn name(&self, index: usize) -> Option<&str>;
 
+    /// Get the type name of the implementor.
     fn type_name(&self) -> &str;
 }
 
@@ -247,6 +287,7 @@ impl FieldAccess for &mut dyn Enum {
     }
 }
 
+/// An editor for composite types. Includes structs, tuples, tuple structs, and enums.
 pub fn composite_editor(
     ui: &mut Ui,
     mut repr: impl FieldAccess,
@@ -289,6 +330,7 @@ pub fn composite_editor(
     }
 }
 
+/// An editor for lists.
 pub fn list_editor(
     ui: &mut Ui,
     repr: &mut dyn List,
@@ -328,32 +370,33 @@ pub fn list_editor(
                 i = i.wrapping_add(1);
             }
 
-            states.ctors(id, |states, ctors| {
-                let ctor = ctors.first();
+            // states.ctors(id, |states, ctors| {
+            // let ctor = ctors.first();
 
-                // TODO: Currently bevy's reflection capabilites are limiting when it comes to
-                // adding/removing from lists, so this is omitted for now.
-                // if ui.button("+").clicked() {
-                //     match (|| {
-                //         let item_name = match get_type_info(world, repr.type_name())? {
-                //             TypeInfo::List(info) => info.item_type_name(),
-                //             _ => todo!(),
-                //             // TypeInfo::Dynamic(_) => ,
-                //         };
-                //         let item_info = get_type_info(world, item_name)?;
-                //         default_value(item_info, world)
-                //     })() {
-                //         Some(item) => ctor.start(item),
-                //         None => world
-                //             .resource_mut::<Popups>()
-                //             .add(Popup::new("failed to find reflection info")),
-                //     }
-                // }
-            });
+            // TODO: Currently bevy's reflection capabilites are limiting when it comes to
+            // adding/removing from lists, so this is omitted for now.
+            // if ui.button("+").clicked() {
+            //     match (|| {
+            //         let item_name = match get_type_info(world, repr.type_name())? {
+            //             TypeInfo::List(info) => info.item_type_name(),
+            //             _ => todo!(),
+            //             // TypeInfo::Dynamic(_) => ,
+            //         };
+            //         let item_info = get_type_info(world, item_name)?;
+            //         default_value(item_info, world)
+            //     })() {
+            //         Some(item) => ctor.start(item),
+            //         None => world
+            //             .resource_mut::<Popups>()
+            //             .add(Popup::new("failed to find reflection info")),
+            //     }
+            // }
+            // });
         })
     });
 }
 
+/// An editor for arrays.
 pub fn array_editor(
     ui: &mut Ui,
     repr: &mut dyn Array,
@@ -383,6 +426,7 @@ pub fn array_editor(
     });
 }
 
+/// An editor for maps.
 pub fn map_editor(
     ui: &mut Ui,
     repr: &mut dyn Map,
@@ -425,32 +469,33 @@ pub fn map_editor(
                 i = i.wrapping_add(1);
             }
 
-            states.ctors(id, |states, ctors| {
-                let ctor = ctors.first();
+            // states.ctors(id, |states, ctors| {
+            // let ctor = ctors.first();
 
-                // TODO: Currently bevy's reflection capabilites are limiting when it comes to
-                // adding/removing from lists, so this is omitted for now.
-                // if ui.button("+").clicked() {
-                //     match (|| {
-                //         let item_name = match get_type_info(world, repr.type_name())? {
-                //             TypeInfo::List(info) => info.item_type_name(),
-                //             _ => todo!(),
-                //             // TypeInfo::Dynamic(_) => ,
-                //         };
-                //         let item_info = get_type_info(world, item_name)?;
-                //         default_value(item_info, world)
-                //     })() {
-                //         Some(item) => ctor.start(item),
-                //         None => world
-                //             .resource_mut::<Popups>()
-                //             .add(Popup::new("failed to find reflection info")),
-                //     }
-                // }
-            });
+            // TODO: Currently bevy's reflection capabilites are limiting when it comes to
+            // adding/removing from lists, so this is omitted for now.
+            // if ui.button("+").clicked() {
+            //     match (|| {
+            //         let item_name = match get_type_info(world, repr.type_name())? {
+            //             TypeInfo::List(info) => info.item_type_name(),
+            //             _ => todo!(),
+            //             // TypeInfo::Dynamic(_) => ,
+            //         };
+            //         let item_info = get_type_info(world, item_name)?;
+            //         default_value(item_info, world)
+            //     })() {
+            //         Some(item) => ctor.start(item),
+            //         None => world
+            //             .resource_mut::<Popups>()
+            //             .add(Popup::new("failed to find reflection info")),
+            //     }
+            // }
+            // });
         })
     });
 }
 
+/// An editor for enums.
 pub fn enum_editor(
     ui: &mut Ui,
     repr: &mut dyn Enum,
@@ -540,7 +585,7 @@ enum VariantKind {
     Unit,
 }
 
-/// Holds a dynamic value and a variant tag to edit a variant
+/// Holds a dynamic value and a variant tag to edit a variant.
 #[derive(Reflect)]
 pub struct VariantProxy {
     variant: String,
@@ -548,6 +593,7 @@ pub struct VariantProxy {
 }
 
 impl VariantProxy {
+    /// Edits the variant with the proper editor.
     pub fn editor(
         ui: &mut Ui,
         repr: &mut dyn Reflect,
@@ -703,6 +749,7 @@ fn get_type_info<'w>(world: &'w World, name: &str) -> Option<&'w TypeInfo> {
     Some(registry.get_with_name(name)?.type_info())
 }
 
+/// A default fallback editor for value types. Prints the debug representation of the value.
 pub fn value_editor(ui: &mut Ui, repr: &mut dyn Reflect) {
     ui.vertical(|ui| {
         ui.label("No editor known for this value type. Consider adding an editor to ReprEditors");
@@ -710,6 +757,7 @@ pub fn value_editor(ui: &mut Ui, repr: &mut dyn Reflect) {
     });
 }
 
+/// The bool editor.
 pub fn bool_editor(
     ui: &mut Ui,
     repr: &mut dyn Reflect,
@@ -721,6 +769,7 @@ pub fn bool_editor(
     ui.checkbox(value, "");
 }
 
+/// A generic number editor that works for all integer + floating point types.
 pub fn num_editor<T: Copy + Reflect + FromStr + Display>(
     ui: &mut Ui,
     repr: &mut dyn Reflect,
@@ -746,6 +795,7 @@ pub fn num_editor<T: Copy + Reflect + FromStr + Display>(
     }
 }
 
+/// The string editor.
 pub fn string_editor(
     ui: &mut Ui,
     repr: &mut dyn Reflect,
