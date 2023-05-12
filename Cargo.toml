@@ -2,6 +2,11 @@
 name = "aether_spyglass"
 version = "0.1.0"
 edition = "2021"
+description = "A general-purpose extensible inspector for bevy engine"
+documentation = "https://docs.rs/aether_spyglass/0.1.0/aether_spyglass/"
+readme = "README"
+repository = "https://github.com/PROMETHIA-27/aether_spyglass"
+license = "MIT OR APACHE-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
