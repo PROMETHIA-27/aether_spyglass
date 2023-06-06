@@ -1,5 +1,5 @@
 #![forbid(missing_docs, rustdoc::broken_intra_doc_links)]
-#![doc = include_str!("../README")]
+#![doc = include_str!("../README.md")]
 
 pub mod tabs;
 
