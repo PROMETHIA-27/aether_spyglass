@@ -9,8 +9,8 @@ fn main() {
         .register_type::<Vec<i32>>()
         .register_type::<HashMap<String, i32>>()
         .add_plugins(DefaultPlugins)
-        .add_plugin(SpyglassPlugin)
-        .add_startup_system(setup)
+        .add_plugins(SpyglassPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 

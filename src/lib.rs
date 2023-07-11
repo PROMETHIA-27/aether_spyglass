@@ -16,10 +16,10 @@ pub struct SpyglassPlugin;
 
 impl Plugin for SpyglassPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(EguiPlugin)
+        app.add_plugins(EguiPlugin)
             .init_resource::<Spyglass>()
-            .add_system(spyglass_window.in_set(SpyglassWindow))
-            .add_plugin(EntitiesTabPlugin);
+            .add_systems(Update, spyglass_window.in_set(SpyglassWindow))
+            .add_plugins(EntitiesTabPlugin);
     }
 }
 

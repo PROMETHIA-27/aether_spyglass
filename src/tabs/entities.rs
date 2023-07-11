@@ -30,16 +30,19 @@ impl Plugin for EntitiesTabPlugin {
             .init_resource::<EditorStates>()
             .init_resource::<Popups>()
             .add_systems(
+                Update,
                 (
-                    display_popups,
-                    collect_entity_state,
-                    track_entities,
-                    untrack_entities,
-                )
-                    .chain()
-                    .before(SpyglassWindow),
-            )
-            .add_system(apply_entity_state.after(SpyglassWindow));
+                    (
+                        display_popups,
+                        collect_entity_state,
+                        track_entities,
+                        untrack_entities,
+                    )
+                        .chain()
+                        .before(SpyglassWindow),
+                    apply_entity_state.after(SpyglassWindow),
+                ),
+            );
     }
 }
 

@@ -616,7 +616,6 @@ impl VariantProxy {
     fn into_enum(self, name: &str) -> DynamicEnum {
         DynamicEnum::new(
             name,
-            &self.variant,
             match self.value {
                 VariantKind::Struct(value) => DynamicVariant::from(value),
                 VariantKind::Tuple(value) => DynamicVariant::from(value),
@@ -717,7 +716,7 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
                 bevy::reflect::ReflectRef::Value(_) => ().into(),
                 _ => unreachable!(),
             };
-            let value = DynamicEnum::new(info.type_name(), default_variant.name(), default_value);
+            let value = DynamicEnum::new(info.type_name(), default_value);
             Some(Box::new(value))
         }
         TypeInfo::Value(info) => match info.type_name() {
@@ -735,10 +734,6 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
             "f32" => Some(Box::new(0.0f32)),
             "f64" => Some(Box::new(0.0f64)),
             "alloc::string::String" => Some(Box::new("".to_string())),
-            _ => None,
-        },
-        TypeInfo::Dynamic(info) => match info.type_name() {
-            "bevy::reflect::DynamicStruct" => Some(Box::<DynamicStruct>::default()),
             _ => None,
         },
     }

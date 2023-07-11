@@ -11,11 +11,11 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.10.1", default-features = false }
-bevy_egui = "0.20.2"
+bevy = { version = "0.11", default-features = false }
+bevy_egui = "0.21.0"
 
 [dev-dependencies.bevy]
-version = "0.10"
+version = "0.11"
 default-features = false
 features = ["bevy_winit", "bevy_render", "bevy_core_pipeline", "bevy_pbr"]
 
