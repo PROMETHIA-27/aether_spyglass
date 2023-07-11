@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "A general-purpose extensible inspector for bevy engine"
 documentation = "https://docs.rs/aether_spyglass/0.1.0/aether_spyglass/"
-readme = "README"
+readme = "README.md"
 repository = "https://github.com/PROMETHIA-27/aether_spyglass"
 license = "MIT OR Apache-2.0"
 
