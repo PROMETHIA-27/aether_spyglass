@@ -1,6 +1,6 @@
 [package]
 name = "aether_spyglass"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A general-purpose extensible inspector for bevy engine"
 documentation = "https://docs.rs/aether_spyglass/0.1.0/aether_spyglass/"
