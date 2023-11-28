@@ -631,7 +631,7 @@ fn default_variant_value(variant: &VariantInfo, world: &World) -> Option<Box<dyn
             let mut value = DynamicStruct::default();
             for i in 0..info.field_len() {
                 let field = info.field_at(i).unwrap();
-                let info = get_type_info(world, field.type_name())?;
+                let info = get_type_info(world, field.type_path())?;
                 value.insert_boxed(field.name(), default_value(info, world)?);
             }
             Some(Box::new(VariantProxy {
@@ -643,7 +643,7 @@ fn default_variant_value(variant: &VariantInfo, world: &World) -> Option<Box<dyn
             let mut value = DynamicTuple::default();
             for i in 0..info.field_len() {
                 let field = info.field_at(i).unwrap();
-                let info = get_type_info(world, field.type_name())?;
+                let info = get_type_info(world, field.type_path())?;
                 value.insert_boxed(default_value(info, world)?);
             }
             Some(Box::new(VariantProxy {
@@ -664,7 +664,7 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
             let mut value = DynamicStruct::default();
             for i in 0..info.field_len() {
                 let field = info.field_at(i).unwrap();
-                let info = get_type_info(world, field.type_name())?;
+                let info = get_type_info(world, field.type_path())?;
                 value.insert_boxed(field.name(), default_value(info, world)?);
             }
             Some(Box::new(value))
@@ -673,7 +673,7 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
             let mut value = DynamicTupleStruct::default();
             for i in 0..info.field_len() {
                 let field = info.field_at(i).unwrap();
-                let info = get_type_info(world, field.type_name())?;
+                let info = get_type_info(world, field.type_path())?;
                 value.insert_boxed(default_value(info, world)?);
             }
             Some(Box::new(value))
@@ -682,7 +682,7 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
             let mut value = DynamicTuple::default();
             for i in 0..info.field_len() {
                 let field = info.field_at(i).unwrap();
-                let info = get_type_info(world, field.type_name())?;
+                let info = get_type_info(world, field.type_path())?;
                 value.insert_boxed(default_value(info, world)?);
             }
             Some(Box::new(value))
@@ -692,7 +692,7 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
             Some(Box::new(value))
         }
         TypeInfo::Array(info) => {
-            let item_info = get_type_info(world, info.item_type_name())?;
+            let item_info = get_type_info(world, info.type_path())?;
             let values = std::iter::repeat_with(|| default_value(item_info, world))
                 .take(info.capacity())
                 .collect::<Option<Vec<_>>>()?;
@@ -716,10 +716,10 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
                 bevy::reflect::ReflectRef::Value(_) => ().into(),
                 _ => unreachable!(),
             };
-            let value = DynamicEnum::new(info.type_name(), default_value);
+            let value = DynamicEnum::new(info.type_path(), default_value);
             Some(Box::new(value))
         }
-        TypeInfo::Value(info) => match info.type_name() {
+        TypeInfo::Value(info) => match info.type_path() {
             "bool" => Some(Box::new(false)),
             "i8" => Some(Box::new(0i8)),
             "i16" => Some(Box::new(0i16)),
@@ -741,7 +741,7 @@ fn default_value(info: &TypeInfo, world: &World) -> Option<Box<dyn Reflect>> {
 
 fn get_type_info<'w>(world: &'w World, name: &str) -> Option<&'w TypeInfo> {
     let registry = world.get_resource::<AppTypeRegistry>()?.read();
-    Some(registry.get_with_name(name)?.type_info())
+    Some(registry.get_with_short_type_path(name)?.type_info())
 }
 
 /// A default fallback editor for value types. Prints the debug representation of the value.
