@@ -159,7 +159,7 @@ fn track_entities(
 }
 
 fn untrack_entities(mut q: RemovedComponents<TrackedInSpyglass>, mut state: ResMut<EntityTracker>) {
-    for entity in &mut q {
+    for entity in &mut q.read() {
         state.tracked.remove(&entity);
     }
 }
@@ -198,7 +198,7 @@ impl EntityComponents {
 
 fn get_reflect_impl(world: &World, name: &str) -> Option<ReflectComponent> {
     let registry = world.get_resource::<AppTypeRegistry>()?.read();
-    let registration = registry.get_with_name(name)?;
+    let registration = registry.get_with_short_type_path(name)?;
     registration.data::<ReflectComponent>().cloned()
 }
 
